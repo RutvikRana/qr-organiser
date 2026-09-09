@@ -1,0 +1,204 @@
+QR ORGANISER - AI AGENT HANDOFF
+================================
+
+Project purpose:
+This app is a QR-based organiser for physical items. Each item has a unique QR ID, a label, location, notes, and photos. The user scans a sticker/QR, opens the item, and manages the item details and images.
+
+Core product rule:
+Use a single items table only.
+Do NOT create a separate item_images table.
+Store all image URLs in the items row.
+- image_url = the selected main/display image
+- images = array of all image URLs for that item
+
+Important architecture:
+- Frontend: React + Vite
+- Backend/data: Supabase
+- Storage: Supabase Storage bucket named item-images
+- Routing: React Router
+- PWA support: vite-plugin-pwa is configured
+
+Repository structure:
+- index.html
+- package.json
+- vite.config.js
+- README.md
+- supabase-schema.sql
+- src/
+  - App.jsx
+  - index.css
+  - main.jsx
+  - lib/
+    - imageCompression.js
+    - supabase.js
+  - pages/
+    - Home.jsx
+    - ItemDetail.jsx
+    - NewItem.jsx
+    - Scan.jsx
+- supabase/
+  - config.toml
+
+Environment variables:
+Create a .env file in the project root with:
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-public-key
+
+The app reads either:
+- VITE_SUPABASE_ANON_KEY
+- or VITE_SUPABASE_PUBLISHABLE_KEY
+
+The project already supports both names in src/lib/supabase.js.
+
+Database schema to use:
+This is the correct single-table schema for Supabase:
+
+create table if not exists items (
+  id text primary key,
+  label text not null,
+  location text,
+  image_url text,
+  images text[] not null default '{}',
+  notes text,
+  created_at timestamptz default now()
+);
+
+alter table items enable row level security;
+
+create policy "public read items" on items for select using (true);
+create policy "public insert items" on items for insert with check (true);
+create policy "public update items" on items for update using (true);
+create policy "public delete items" on items for delete using (true);
+
+insert into storage.buckets (id, name, public)
+values ('item-images', 'item-images', true)
+on conflict (id) do nothing;
+
+create policy "public read item images storage" on storage.objects
+  for select using (bucket_id = 'item-images');
+create policy "public upload item images storage" on storage.objects
+  for insert with check (bucket_id = 'item-images');
+create policy "public delete item images storage" on storage.objects
+  for delete using (bucket_id = 'item-images');
+create policy "public delete item images" on storage.objects
+  for delete using (bucket_id = 'item-images');
+
+IMPORTANT:
+- Do NOT add an item_images table.
+- Do NOT store image rows in a separate table.
+- Keep the item row as the single source of truth.
+
+Current app behavior expected:
+1. Home page
+- Shows a list of items
+- Each card shows item label, location, id, and main image if available
+- Fetches from items table with fields: id, label, location, image_url, created_at
+
+2. New item form
+- User can enter QR ID, label, location, notes
+- User can upload multiple photos
+- User chooses which photo is the main display image
+- The app uploads files to the item-images bucket
+- It saves all uploaded URLs into items.images
+- It also saves the selected main image into items.image_url
+
+3. Item detail page
+- Displays the main image large
+- Displays thumbnail gallery for all images
+- Has buttons to set another image as the main display image
+- Has an edit mode to modify fields and add more photos
+- Has the ability to remove extra images from the images array
+- Has delete item action that deletes storage files for item images and removes item row
+
+4. Editing UX
+- The edit view should show the current item photos in a grid
+- Each image should have a button to set as main image
+- Each image should have a remove button to delete that image from the array
+- New images can be uploaded to add to the array
+- The chosen main image should remain synchronized with image_url
+
+Data format expected in items row:
+Example:
+{
+  id: "12300",
+  label: "Winter mugs",
+  location: "Garage shelf B",
+  image_url: "https://.../item-images/...jpg",
+  images: [
+    "https://.../item-images/...jpg",
+    "https://.../item-images/...jpg",
+    "https://.../item-images/...jpg"
+  ],
+  notes: "Some notes",
+  created_at: "2026-09-09T..."
+}
+
+Key file references:
+- src/lib/supabase.js
+  - Must use VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY or VITE_SUPABASE_PUBLISHABLE_KEY
+  - This file should not be broken by changes
+
+- src/pages/NewItem.jsx
+  - Handles new item creation
+  - Uses compressImage to compress uploaded files before saving
+  - Saves images into the items row
+
+- src/pages/ItemDetail.jsx
+  - Handles item loading, image gallery, main image selection, editing, and delete logic
+  - Must be updated to use the single table pattern
+
+- src/pages/Home.jsx
+  - Lists items for browsing
+  - Reads item.image_url for preview image
+
+- README.md
+  - Might describe older setup; do not blindly trust it if it mentions two-table structure
+
+Acceptance criteria for any fix or feature work:
+- No separate item_images table is created or used
+- App does not query item_images anywhere
+- The app stores and reads image URLs from items.images and items.image_url
+- Main image selection works consistently
+- All photo upload/delete flows work with Supabase Storage
+- Item detail page shows the selected main image and all extra images
+- Edit mode allows setting main image and removing extra images
+- Build passes with npm run build
+- App works without console-breaking errors
+
+Important rules for the AI agent:
+- Prefer small, targeted changes over large rewrites
+- Do not add unused dependencies or libraries
+- Keep styling consistent with the current design system already present in the app
+- Preserve QR-based scanner workflows
+- Respect existing function/component names unless a clear reason exists to rename them
+- If schema migration is needed, keep it simple and safe
+- If data is legacy from the old two-table system, handle it gracefully without breaking older records
+
+What the agent should return after working:
+Please provide a structured update with:
+1. Summary of what changed
+2. Files touched
+3. Why the change was needed
+4. Any schema changes
+5. Verification result
+6. Any remaining warnings or follow-up tasks
+7. If there was a problem, explain what failed and how it was solved
+
+Do not respond with vague statements like "should work".
+Always give concrete evidence from a verification command, such as: npm run build
+
+Suggested verification command:
+cd /workspaces/qr-organiser && npm run build
+
+Important legacy note:
+The project previously used a two-table setup with items + item_images. That pattern is outdated for this app. The correct design is now the single-item-array pattern described above.
+
+If in doubt:
+- Keep the item row as the single source of truth
+- Store the array of photo URLs in items.images
+- Store the main image URL in items.image_url
+- Use the selected main image for display and card previews
+
+This handoff document is the main source of truth for app logic and DB schema.
+
+End of handoff.
