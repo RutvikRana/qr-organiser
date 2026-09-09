@@ -26,67 +26,42 @@ export default function NewItem() {
     setSaving(true)
     setError(null)
 
-    let primaryImageUrl = null
     const itemId = id.trim()
+    const uploadedUrls = []
+
+    for (let index = 0; index < selectedFiles.length; index += 1) {
+      const file = selectedFiles[index]
+      const compressedFile = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.7 })
+      const path = `${itemId}-${Date.now()}-${index}-${compressedFile.name}`
+
+      const { error: uploadError } = await supabase.storage.from('item-images').upload(path, compressedFile)
+      if (uploadError) {
+        setSaving(false)
+        setError(`Image upload failed: ${uploadError.message}`)
+        return
+      }
+
+      const { data: urlData } = supabase.storage.from('item-images').getPublicUrl(path)
+      uploadedUrls.push(urlData.publicUrl)
+    }
+
+    const primaryImageUrl = uploadedUrls[primaryIndex] || uploadedUrls[0] || null
 
     const { error: insertError } = await supabase
       .from('items')
-      .insert({ id: itemId, label, location, notes, image_url: null })
+      .insert({
+        id: itemId,
+        label,
+        location,
+        notes,
+        image_url: primaryImageUrl,
+        images: uploadedUrls,
+      })
 
     if (insertError) {
       setSaving(false)
       setError(insertError.message)
       return
-    }
-
-    if (selectedFiles.length > 0) {
-      const uploadedRows = []
-
-      for (let index = 0; index < selectedFiles.length; index += 1) {
-        const file = selectedFiles[index]
-        const compressedFile = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.7 })
-        const path = `${itemId}-${Date.now()}-${index}-${compressedFile.name}`
-
-        const { error: uploadError } = await supabase.storage.from('item-images').upload(path, compressedFile)
-        if (uploadError) {
-          setSaving(false)
-          setError(`Image upload failed: ${uploadError.message}`)
-          return
-        }
-
-        const { data: urlData } = supabase.storage.from('item-images').getPublicUrl(path)
-        const imageUrl = urlData.publicUrl
-
-        if (index === primaryIndex) {
-          primaryImageUrl = imageUrl
-        }
-
-        uploadedRows.push({
-          item_id: itemId,
-          image_url: imageUrl,
-          is_primary: index === primaryIndex,
-        })
-      }
-
-      const { error: imagesError } = await supabase.from('item_images').insert(uploadedRows)
-      if (imagesError) {
-        setSaving(false)
-        setError(imagesError.message)
-        return
-      }
-
-      if (primaryImageUrl) {
-        const { error: updateError } = await supabase
-          .from('items')
-          .update({ image_url: primaryImageUrl })
-          .eq('id', itemId)
-
-        if (updateError) {
-          setSaving(false)
-          setError(updateError.message)
-          return
-        }
-      }
     }
 
     setSaving(false)
@@ -164,7 +139,7 @@ export default function NewItem() {
 
         {selectedFiles.length > 0 && (
           <div style={{ display: 'grid', gap: 8 }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--ink-soft)' }}>Choose display image</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--ink-soft)' }}>Choose the main display image</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {selectedFiles.map((file, index) => (
                 <button

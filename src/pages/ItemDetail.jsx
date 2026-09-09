@@ -43,6 +43,7 @@ export default function ItemDetail() {
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [newFiles, setNewFiles] = useState([])
+  const [selectedMainImage, setSelectedMainImage] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -53,23 +54,30 @@ export default function ItemDetail() {
   async function load() {
     setLoading(true)
     const { data, error: itemError } = await supabase.from('items').select('*').eq('id', id).single()
-    const { data: imagesData, error: imagesError } = await supabase.from('item_images').select('*').eq('item_id', id).order('created_at', { ascending: true })
 
-    if (itemError) setError(itemError.message)
-    else {
-      setItem(data)
-      setLabel(data.label || '')
-      setLocation(data.location || '')
-      setNotes(data.notes || '')
+    if (itemError) {
+      setError(itemError.message)
+      setLoading(false)
+      return
     }
 
-    if (imagesError) {
-      setError(imagesError.message)
-    } else {
-      setItemImages(imagesData || [])
-    }
+    const normalizedImages = Array.isArray(data.images) ? data.images.filter(Boolean) : []
+    const imageList = normalizedImages.length > 0 ? normalizedImages : (data.image_url ? [data.image_url] : [])
 
+    setItem(data)
+    setItemImages(imageList)
+    setLabel(data.label || '')
+    setLocation(data.location || '')
+    setNotes(data.notes || '')
+    setSelectedMainImage(data.image_url || imageList[0] || '')
+    setError(null)
     setLoading(false)
+  }
+
+  function handleRemoveExistingImage(imageUrl) {
+    const nextImages = itemImages.filter((url) => url !== imageUrl)
+    setItemImages(nextImages)
+    setSelectedMainImage((current) => current === imageUrl ? (nextImages[0] || '') : current)
   }
 
   async function handleSave(e) {
@@ -77,48 +85,37 @@ export default function ItemDetail() {
     setSaving(true)
     setError(null)
 
-    const primaryImage = itemImages.find((image) => image.is_primary) || itemImages[0]
-    let image_url = item.image_url || primaryImage?.image_url || null
+    const uploadedUrls = []
+    for (let index = 0; index < newFiles.length; index += 1) {
+      const file = newFiles[index]
+      const compressedFile = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.7 })
+      const path = `${id}-${Date.now()}-${index}-${compressedFile.name}`
 
-    if (newFiles.length > 0) {
-      const rows = []
-      for (let index = 0; index < newFiles.length; index += 1) {
-        const file = newFiles[index]
-        const compressedFile = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.7 })
-        const path = `${id}-${Date.now()}-${index}-${compressedFile.name}`
-
-        const { error: uploadError } = await supabase.storage.from('item-images').upload(path, compressedFile)
-        if (uploadError) {
-          setSaving(false)
-          setError(`Image upload failed: ${uploadError.message}`)
-          return
-        }
-
-        const { data: urlData } = supabase.storage.from('item-images').getPublicUrl(path)
-        const imageUrl = urlData.publicUrl
-
-        rows.push({
-          item_id: id,
-          image_url: imageUrl,
-          is_primary: itemImages.length === 0 && index === 0,
-        })
-
-        if (itemImages.length === 0 && index === 0) {
-          image_url = imageUrl
-        }
-      }
-
-      const { error: insertError } = await supabase.from('item_images').insert(rows)
-      if (insertError) {
+      const { error: uploadError } = await supabase.storage.from('item-images').upload(path, compressedFile)
+      if (uploadError) {
         setSaving(false)
-        setError(insertError.message)
+        setError(`Image upload failed: ${uploadError.message}`)
         return
       }
+
+      const { data: urlData } = supabase.storage.from('item-images').getPublicUrl(path)
+      uploadedUrls.push(urlData.publicUrl)
     }
+
+    const finalImages = Array.from(new Set([...itemImages, ...uploadedUrls]))
+    const primaryImage = (selectedMainImage && finalImages.includes(selectedMainImage))
+      ? selectedMainImage
+      : finalImages[0] || null
 
     const { error: updateError } = await supabase
       .from('items')
-      .update({ label, location, notes, image_url })
+      .update({
+        label,
+        location,
+        notes,
+        image_url: primaryImage,
+        images: finalImages,
+      })
       .eq('id', id)
 
     setSaving(false)
@@ -132,57 +129,36 @@ export default function ItemDetail() {
     load()
   }
 
-  async function handlePrimarySelect(imageId) {
-    const selected = itemImages.find((image) => image.id === imageId)
-    if (!selected) return
-
-    const { error: clearError } = await supabase.from('item_images').update({ is_primary: false }).eq('item_id', id)
-    if (clearError) {
-      setError(clearError.message)
+  async function handlePrimarySelect(imageUrl) {
+    const { error: updateError } = await supabase.from('items').update({ image_url: imageUrl }).eq('id', id)
+    if (updateError) {
+      setError(updateError.message)
       return
     }
 
-    const { error: setErrorResult } = await supabase.from('item_images').update({ is_primary: true }).eq('id', imageId)
-    if (setErrorResult) {
-      setError(setErrorResult.message)
-      return
-    }
-
-    const { error: itemUpdateError } = await supabase.from('items').update({ image_url: selected.image_url }).eq('id', id)
-    if (itemUpdateError) {
-      setError(itemUpdateError.message)
-      return
-    }
-
+    setSelectedMainImage(imageUrl)
+    setItem((prev) => ({ ...prev, image_url: imageUrl }))
     load()
   }
 
   async function handleDelete() {
     if (!confirm(`Delete "${item.label}"? This can't be undone.`)) return
 
-    const { error: storageError } = await deleteStorageImageIfAny(item.image_url)
-    if (storageError) {
-      setError(`Could not delete the image from storage: ${storageError.message}`)
-      return
-    }
-
-    const { data: imageRows } = await supabase.from('item_images').select('*').eq('item_id', id)
-    if (imageRows && imageRows.length > 0) {
-      for (const imageRow of imageRows) {
-        await deleteStorageImageIfAny(imageRow.image_url)
+    const urlsToDelete = [...new Set([...(Array.isArray(item?.images) ? item.images : []), item?.image_url].filter(Boolean))]
+    for (const imageUrl of urlsToDelete) {
+      const { error: storageError } = await deleteStorageImageIfAny(imageUrl)
+      if (storageError) {
+        setError(`Could not delete the image from storage: ${storageError.message}`)
+        return
       }
-      await supabase.from('item_images').delete().eq('item_id', id)
     }
 
     await supabase.from('items').delete().eq('id', id)
     navigate('/')
   }
 
-  const allImages = itemImages.length > 0
-    ? itemImages
-    : item && item.image_url
-      ? [{ id: 'legacy', image_url: item.image_url, is_primary: true }]
-      : []
+  const allImages = itemImages.length > 0 ? itemImages : (item && item.image_url ? [item.image_url] : [])
+  const primaryDisplayImage = item?.image_url || allImages[0] || ''
 
   if (loading) return <p>Loading…</p>
   if (error && !item) return <p style={{ color: 'var(--danger)' }}>{error}</p>
@@ -193,6 +169,36 @@ export default function ItemDetail() {
       <div>
         <span className="tape">{item.id}</span>
         <h1 style={{ fontSize: '1.4rem', margin: '8px 0' }}>Edit item</h1>
+
+        {itemImages.length > 0 && (
+          <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--ink-soft)' }}>Choose the main image and remove any extras</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 8 }}>
+              {itemImages.map((imageUrl) => (
+                <div key={imageUrl} style={{ display: 'grid', gap: 6 }}>
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8, border: selectedMainImage === imageUrl ? '2px solid var(--accent)' : '1px solid var(--line)' }}
+                  />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button type="button" className="btn" onClick={() => setSelectedMainImage(imageUrl)}>
+                      {selectedMainImage === imageUrl ? 'Main image' : 'Set as main'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveExistingImage(imageUrl)}
+                      style={{ border: '1.5px solid var(--danger)', background: 'transparent', color: 'var(--danger)', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSave} style={{ display: 'grid', gap: 12, maxWidth: 400 }}>
           <label>
             Label
@@ -217,6 +223,14 @@ export default function ItemDetail() {
               style={{ display: 'block', marginTop: 4 }}
             />
           </label>
+          {newFiles.length > 0 && (
+            <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--ink-soft)' }}>New uploads</div>
+              {newFiles.map((file, index) => (
+                <div key={`${file.name}-${index}`} style={{ fontSize: '0.8rem' }}>{file.name}</div>
+              ))}
+            </div>
+          )}
           {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
@@ -236,21 +250,21 @@ export default function ItemDetail() {
       {allImages.length > 0 && (
         <div style={{ display: 'grid', gap: 12, margin: '12px 0' }}>
           <img
-            src={allImages.find((image) => image.is_primary)?.image_url || allImages[0].image_url}
+            src={primaryDisplayImage}
             alt={item.label}
             style={{ width: '100%', maxWidth: 320, borderRadius: 'var(--radius)', display: 'block' }}
           />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 8 }}>
-            {allImages.map((image) => (
-              <div key={image.id} style={{ display: 'grid', gap: 6 }}>
+            {allImages.map((imageUrl) => (
+              <div key={imageUrl} style={{ display: 'grid', gap: 6 }}>
                 <img
-                  src={image.image_url}
+                  src={imageUrl}
                   alt=""
-                  style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8, border: image.is_primary ? '2px solid var(--accent)' : '1px solid var(--line)' }}
+                  style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8, border: selectedMainImage === imageUrl ? '2px solid var(--accent)' : '1px solid var(--line)' }}
                 />
-                <button type="button" className="btn" onClick={() => handlePrimarySelect(image.id)}>
-                  {image.is_primary ? 'Display image' : 'Use as display'}
+                <button type="button" className="btn" onClick={() => handlePrimarySelect(imageUrl)}>
+                  {selectedMainImage === imageUrl ? 'Display image' : 'Use as display'}
                 </button>
               </div>
             ))}
