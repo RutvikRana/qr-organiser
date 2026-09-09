@@ -1,4 +1,4 @@
-# Box Organiser
+# QR Organiser
 
 Scan a QR sticker on a box → see (and edit) what's inside. React + Vite PWA, Supabase backend.
 

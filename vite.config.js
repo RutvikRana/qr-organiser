@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'Box Organiser',
-        short_name: 'Organiser',
+        name: 'QR Organiser',
+        short_name: 'QR Organiser',
         description: 'Scan a box QR code to see what is inside',
         theme_color: '#1F2421',
         background_color: '#EDEFEA',
