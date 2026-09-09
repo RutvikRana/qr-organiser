@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { compressImage } from '../lib/imageCompression.js'
 import { supabase } from '../lib/supabase.js'
 
 export default function NewItem() {
@@ -10,7 +11,8 @@ export default function NewItem() {
   const [label, setLabel] = useState('')
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
-  const [file, setFile] = useState(null)
+  const [selectedFiles, setSelectedFiles] = useState([])
+  const [primaryIndex, setPrimaryIndex] = useState(0)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -20,34 +22,75 @@ export default function NewItem() {
       setError('An ID is required — this should match the QR sticker.')
       return
     }
+
     setSaving(true)
     setError(null)
 
-    let image_url = null
-    if (file) {
-      const path = `${id.trim()}-${Date.now()}-${file.name}`
-      const { error: uploadError } = await supabase.storage
-        .from('item-images')
-        .upload(path, file)
-      if (uploadError) {
-        setSaving(false)
-        setError(`Image upload failed: ${uploadError.message}`)
-        return
-      }
-      const { data: urlData } = supabase.storage.from('item-images').getPublicUrl(path)
-      image_url = urlData.publicUrl
-    }
+    let primaryImageUrl = null
+    const itemId = id.trim()
 
     const { error: insertError } = await supabase
       .from('items')
-      .insert({ id: id.trim(), label, location, notes, image_url })
+      .insert({ id: itemId, label, location, notes, image_url: null })
 
-    setSaving(false)
     if (insertError) {
+      setSaving(false)
       setError(insertError.message)
       return
     }
-    navigate(`/item/${id.trim()}`)
+
+    if (selectedFiles.length > 0) {
+      const uploadedRows = []
+
+      for (let index = 0; index < selectedFiles.length; index += 1) {
+        const file = selectedFiles[index]
+        const compressedFile = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.7 })
+        const path = `${itemId}-${Date.now()}-${index}-${compressedFile.name}`
+
+        const { error: uploadError } = await supabase.storage.from('item-images').upload(path, compressedFile)
+        if (uploadError) {
+          setSaving(false)
+          setError(`Image upload failed: ${uploadError.message}`)
+          return
+        }
+
+        const { data: urlData } = supabase.storage.from('item-images').getPublicUrl(path)
+        const imageUrl = urlData.publicUrl
+
+        if (index === primaryIndex) {
+          primaryImageUrl = imageUrl
+        }
+
+        uploadedRows.push({
+          item_id: itemId,
+          image_url: imageUrl,
+          is_primary: index === primaryIndex,
+        })
+      }
+
+      const { error: imagesError } = await supabase.from('item_images').insert(uploadedRows)
+      if (imagesError) {
+        setSaving(false)
+        setError(imagesError.message)
+        return
+      }
+
+      if (primaryImageUrl) {
+        const { error: updateError } = await supabase
+          .from('items')
+          .update({ image_url: primaryImageUrl })
+          .eq('id', itemId)
+
+        if (updateError) {
+          setSaving(false)
+          setError(updateError.message)
+          return
+        }
+      }
+    }
+
+    setSaving(false)
+    navigate(`/item/${itemId}`)
   }
 
   return (
@@ -104,15 +147,45 @@ export default function NewItem() {
           />
         </label>
         <label>
-          Photo
+          Photos
           <input
             type="file"
             accept="image/*"
             capture="environment"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            multiple
+            onChange={(e) => {
+              const files = Array.from(e.target.files || [])
+              setSelectedFiles(files)
+              setPrimaryIndex(files.length > 0 ? 0 : primaryIndex)
+            }}
             style={{ display: 'block', marginTop: 4 }}
           />
         </label>
+
+        {selectedFiles.length > 0 && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--ink-soft)' }}>Choose display image</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {selectedFiles.map((file, index) => (
+                <button
+                  key={`${file.name}-${index}`}
+                  type="button"
+                  onClick={() => setPrimaryIndex(index)}
+                  style={{
+                    border: index === primaryIndex ? '2px solid var(--accent)' : '1px solid var(--line)',
+                    borderRadius: 8,
+                    padding: '6px 8px',
+                    background: index === primaryIndex ? 'rgba(94, 234, 212, 0.12)' : 'transparent',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {file.name.slice(0, 18)}{file.name.length > 18 ? '…' : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
         <button type="submit" className="btn btn-primary" disabled={saving}>
           {saving ? 'Saving…' : 'Save item'}

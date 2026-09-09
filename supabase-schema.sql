@@ -1,7 +1,7 @@
 -- Run this in Supabase: Dashboard → SQL Editor → New query → paste → Run
 
 create table if not exists items (
-  id text primary key,           -- the value printed/encoded in the QR sticker, e.g. '12300'
+  id text primary key,
   label text not null,
   location text,
   image_url text,
@@ -11,24 +11,38 @@ create table if not exists items (
 
 alter table items enable row level security;
 
--- No login screen in this first version, so keep access open to anyone
--- holding your anon key. Fine for personal use; tighten later if needed.
 create policy "public read items" on items for select using (true);
 create policy "public insert items" on items for insert with check (true);
 create policy "public update items" on items for update using (true);
 create policy "public delete items" on items for delete using (true);
 
--- Storage bucket for item photos.
--- Easiest to create this via Dashboard → Storage → New bucket → name it
--- "item-images" → toggle "Public bucket" ON. (Public just means anyone with
--- the exact file URL can view it — fine for personal photos of your stuff,
--- and simplest for a first version.) The SQL below does the same thing if
--- you'd rather run it than click through the UI.
+create table if not exists item_images (
+  id uuid primary key default gen_random_uuid(),
+  item_id text not null references items(id) on delete cascade,
+  image_url text not null,
+  is_primary boolean not null default false,
+  created_at timestamptz default now()
+);
+
+create index if not exists item_images_item_id_idx on item_images(item_id);
+create index if not exists item_images_primary_idx on item_images(item_id, is_primary);
+
+alter table item_images enable row level security;
+
+create policy "public read item images" on item_images for select using (true);
+create policy "public insert item images" on item_images for insert with check (true);
+create policy "public update item images" on item_images for update using (true);
+create policy "public delete item images" on item_images for delete using (true);
+
 insert into storage.buckets (id, name, public)
 values ('item-images', 'item-images', true)
 on conflict (id) do nothing;
 
-create policy "public read item images" on storage.objects
+create policy "public read item images storage" on storage.objects
   for select using (bucket_id = 'item-images');
-create policy "public upload item images" on storage.objects
+create policy "public upload item images storage" on storage.objects
   for insert with check (bucket_id = 'item-images');
+create policy "public delete item images storage" on storage.objects
+  for delete using (bucket_id = 'item-images');
+create policy "public delete item images" on storage.objects
+  for delete using (bucket_id = 'item-images');
