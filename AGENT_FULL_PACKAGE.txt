@@ -1,0 +1,1102 @@
+QR ORGANISER - FULL AGENT PACKAGE
+=================================
+
+This is the complete working package. The agent can run this locally without GitHub access.
+
+PROJECT NAME
+------------
+qr-organiser
+
+WORKSPACE ROOT
+--------------
+/workspaces/qr-organiser
+
+FILES TO COPY / USE
+-------------------
+
+package.json
+```json
+{
+  "name": "qr-organiser",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    ""html5-qrcode": "^2.3.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.6",
+    "vite-plugin-pwa": "^0.20.5"
+  }
+}
+```
+
+vite.config.js
+```js
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
+
+export default defineConfig({
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.svg'],
+      manifest: {
+        name: 'Box Organiser',
+        short_name: 'Organiser',
+        description: 'Scan a box QR code to see what is inside',
+        theme_color: '#1F2421',
+        background_color: '#EDEFEA',
+        display: 'standalone',
+        start_url: '/',
+        icons: [
+          {
+            src: 'icon-192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'icon-512.png',
+            sizes: '512x512',
+            type: 'image/png'
+          }
+        ]
+      }
+    })
+  ],
+  server: {
+    host: true
+  }
+})
+```
+
+index.html
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1F2421" />
+    <title>Box Organiser</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+```
+
+src/main.jsx
+```jsx
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
+import App from './App.jsx'
+import './index.css'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </React.StrictMode>
+)
+```
+
+src/App.jsx
+```jsx
+import { Routes, Route, Link } from 'react-router-dom'
+import Home from './pages/Home.jsx'
+import Scan from './pages/Scan.jsx'
+import ItemDetail from './pages/ItemDetail.jsx'
+import NewItem from './pages/NewItem.jsx'
+
+export default function App() {
+  return (
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+      <header
+        style={{
+          padding: '18px 20px',
+          borderBottom: '1.5px solid var(--line)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}
+      >
+        <Link to="/" style={{ textDecoration: 'none' }}>
+          <span className="tape">BOX / 001</span>{' '}
+          <strong style={{ marginLeft: 8 }}>Organiser</strong>
+        </Link>
+        <Link to="/scan" className="btn btn-primary" style={{ padding: '8px 14px', fontSize: '0.85rem' }}>
+          Scan
+        </Link>
+      </header>
+
+      <main style={{ flex: 1, padding: '20px', maxWidth: 640, width: '100%', margin: '0 auto' }}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/scan" element={<Scan />} />
+          <Route path="/item/new" element={<NewItem />} />
+          <Route path="/item/:id" element={<ItemDetail />} />
+        </Routes>
+      </main>
+    </div>
+  )
+}
+```
+
+src/index.css
+```css
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  --paper: #EDEFEA;
+  --ink: #1F2421;
+  --ink-soft: #4B534E;
+  --tape: #D8A34E;
+  --tape-dark: #B9822F;
+  --teal: #4E7C74;
+  --line: #C9CDC3;
+  --danger: #B5462F;
+  --radius: 3px;
+  --font: 'Space Grotesk', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, textarea {
+  font-family: inherit;
+}
+
+a { color: inherit; }
+
+.tape {
+  display: inline-block;
+  background: var(--tape);
+  color: var(--ink);
+  padding: 2px 10px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.btn {
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn:hover { background: var(--ink); color: var(--paper); }
+
+.btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.btn-primary:hover { background: var(--teal); border-color: var(--teal); color: var(--paper); }
+
+.field {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--teal);
+}
+
+.card {
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: #fff;
+}
+```
+
+src/lib/supabase.js
+```js
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey =
+  import.meta.env.VITE_SUPABASE_ANON_KEY ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn(
+    'Supabase env vars are missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (or VITE_SUPABASE_PUBLISHABLE_KEY) in your .env file.'
+  )
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+```
+
+src/lib/imageCompression.js
+```js
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('Failed to load image'))
+    img.src = src
+  })
+}
+
+export async function compressImage(file, { maxWidth = 1200, maxHeight = 1200, quality = 0.7 } = {}) {
+  if (!file || !file.type.startsWith('image/')) return file
+
+  const isAlreadySmall = file.size <= 180 * 1024
+  if (isAlreadySmall) return file
+
+  try {
+    const dataUrl = await readFileAsDataUrl(file)
+    const img = await loadImage(dataUrl)
+
+    const scale = Math.min(1, maxWidth / img.width, maxHeight / img.height)
+    const canvas = document.createElement('canvas')
+    const width = Math.max(1, Math.round(img.width * scale))
+    const height = Math.max(1, Math.round(img.height * scale))
+
+    canvas.width = width
+    canvas.height = height
+
+    const ctx = canvas.getContext('2d')
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+    ctx.drawImage(img, 0, 0, width, height)
+
+    const targetType = file.type === 'image/png' ? 'image/jpeg' : file.type
+    const output = canvas.toDataURL(targetType, quality)
+    const blob = await fetch(output).then((res) => res.blob())
+
+    const compressedName = file.name.replace(/\.[^.]+$/, '') + (targetType === 'image/jpeg' ? '.jpg' : '.png')
+    const compressedFile = new File([blob], compressedName, {
+      type: targetType,
+      lastModified: Date.now(),
+    })
+
+    return compressedFile.size < file.size ? compressedFile : file
+  } catch (error) {
+    console.warn('Image compression failed, using original file:', error)
+    return file
+  }
+}
+```
+
+src/pages/Home.jsx
+```jsx
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { supabase } from '../lib/supabase.js'
+
+export default function Home() {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const { data, error } = await supabase
+        .from('items')
+        .select('id, label, location, image_url, created_at')
+        .order('created_at', { ascending: false })
+
+      if (cancelled) return
+      if (error) setError(error.message)
+      else setItems(data)
+      setLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  return (
+    <div>
+      <h1 style={{ fontSize: '1.6rem', marginBottom: 4 }}>Your items</h1>
+      <p style={{ color: 'var(--ink-soft)', marginTop: 0, marginBottom: 24 }}>
+        Scan a sticker to open an item, or browse what's already logged.
+      </p>
+
+      {loading && <p>Loading…</p>}
+      {error && (
+        <p style={{ color: 'var(--danger)' }}>
+          Couldn't reach Supabase: {error}. Check your .env values and that the `items` table exists.
+        </p>
+      )}
+
+      {!loading && !error && items.length === 0 && (
+        <div className="card">
+          <p style={{ marginTop: 0 }}>Nothing logged yet.</p>
+          <Link to="/scan" className="btn btn-primary">Scan your first QR code</Link>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gap: 12 }}>
+        {items.map((item) => (
+          <Link
+            key={item.id}
+            to={`/item/${item.id}`}
+            className="card"
+            style={{ textDecoration: 'none', display: 'flex', gap: 12, alignItems: 'center' }}
+          >
+            {item.image_url ? (
+              <img
+                src={item.image_url}
+                alt=""
+                style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 'var(--radius)', flexShrink: 0 }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 48, height: 48, borderRadius: 'var(--radius)', flexShrink: 0,
+                  background: 'var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.7rem', color: 'var(--ink-soft)'
+                }}
+              >
+                no photo
+              </div>
+            )}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600 }}>{item.label}</div>
+              <div style={{ color: 'var(--ink-soft)', fontSize: '0.85rem' }}>
+                {item.location || 'No location set'}
+              </div>
+            </div>
+            <span className="tape">{item.id}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+src/pages/Scan.jsx
+```jsx
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Html5Qrcode } from 'html5-qrcode'
+import { supabase } from '../lib/supabase.js'
+
+const SCANNER_ID = 'qr-reader'
+
+export default function Scan() {
+  const navigate = useNavigate()
+  const scannerRef = useRef(null)
+  const [status, setStatus] = useState('Starting camera…')
+  const [error, setError] = useState(null)
+  const handledRef = useRef(false)
+
+  useEffect(() => {
+    const html5QrCode = new Html5Qrcode(SCANNER_ID)
+    scannerRef.current = html5QrCode
+
+    html5QrCode
+      .start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        onScanSuccess,
+        () => {}
+      )
+      .then(() => setStatus('Point the camera at a sticker'))
+      .catch((err) => {
+        setError('Could not access the camera. Check browser permissions.')
+        console.error(err)
+      })
+
+    return () => {
+      if (scannerRef.current?.isScanning) {
+        scannerRef.current.stop().catch(() => {})
+      }
+    }
+  }, [])
+
+  async function onScanSuccess(decodedText) {
+    if (handledRef.current) return
+    handledRef.current = true
+    const scannedId = decodedText.trim()
+    setStatus(`Scanned: ${scannedId}`)
+
+    if (scannerRef.current?.isScanning) {
+      await scannerRef.current.stop().catch(() => {})
+    }
+
+    const { data, error } = await supabase
+      .from('items')
+      .select('id')
+      .eq('id', scannedId)
+      .maybeSingle()
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+
+    if (data) {
+      navigate(`/item/${data.id}`)
+    } else {
+      navigate(`/item/new?id=${encodeURIComponent(scannedId)}`)
+    }
+  }
+
+  return (
+    <div>
+      <h1 style={{ fontSize: '1.4rem' }}>Scan an item</h1>
+      <div
+        id={SCANNER_ID}
+        style={{
+          width: '100%',
+          maxWidth: 340,
+          margin: '0 auto',
+          border: '1.5px solid var(--line)',
+          borderRadius: 'var(--radius)',
+          overflow: 'hidden'
+        }}
+      />
+      <p style={{ textAlign: 'center', color: 'var(--ink-soft)', marginTop: 16 }}>{status}</p>
+      {error && <p style={{ textAlign: 'center', color: 'var(--danger)' }}>{error}</p>}
+    </div>
+  )
+}
+```
+
+src/pages/NewItem.jsx
+```jsx
+import { useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { compressImage } from '../lib/imageCompression.js'
+import { supabase } from '../lib/supabase.js'
+
+export default function NewItem() {
+  const [params] = useSearchParams()
+  const navigate = useNavigate()
+
+  const [id, setId] = useState(params.get('id') || '')
+  const [label, setLabel] = useState('')
+  const [location, setLocation] = useState('')
+  const [notes, setNotes] = useState('')
+  const [selectedFiles, setSelectedFiles] = useState([])
+  const [primaryIndex, setPrimaryIndex] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!id.trim()) {
+      setError('An ID is required — this should match the QR sticker.')
+      return
+    }
+
+    setSaving(true)
+    setError(null)
+
+    const itemId = id.trim()
+    const uploadedUrls = []
+
+    for (let index = 0; index < selectedFiles.length; index += 1) {
+      const file = selectedFiles[index]
+      const compressedFile = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.7 })
+      const path = `${itemId}-${Date.now()}-${index}-${compressedFile.name}`
+
+      const { error: uploadError } = await supabase.storage.from('item-images').upload(path, compressedFile)
+      if (uploadError) {
+        setSaving(false)
+        setError(`Image upload failed: ${uploadError.message}`)
+        return
+      }
+
+      const { data: urlData } = supabase.storage.from('item-images').getPublicUrl(path)
+      uploadedUrls.push(urlData.publicUrl)
+    }
+
+    const primaryImageUrl = uploadedUrls[primaryIndex] || uploadedUrls[0] || null
+
+    const { error: insertError } = await supabase
+      .from('items')
+      .insert({
+        id: itemId,
+        label,
+        location,
+        notes,
+        image_url: primaryImageUrl,
+        images: uploadedUrls,
+      })
+
+    if (insertError) {
+      setSaving(false)
+      setError(insertError.message)
+      return
+    }
+
+    setSaving(false)
+    navigate(`/item/${itemId}`)
+  }
+
+  return (
+    <div>
+      <h1 style={{ fontSize: '1.4rem' }}>New item</h1>
+      {params.get('id') && (
+        <p style={{ color: 'var(--ink-soft)' }}>
+          This sticker isn't linked to anything yet — <span className="tape">{id}</span>
+        </p>
+      )}
+
+      <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 12, maxWidth: 400 }}>
+        <label>
+          ID
+          <input
+            className="field"
+            placeholder="e.g. 12300"
+            value={id}
+            onChange={(e) => setId(e.target.value)}
+            disabled={!!params.get('id')}
+            required
+            style={{ marginTop: 4 }}
+          />
+        </label>
+        <label>
+          Label
+          <input
+            className="field"
+            placeholder="e.g. Winter mugs"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            required
+            style={{ marginTop: 4 }}
+          />
+        </label>
+        <label>
+          Location
+          <input
+            className="field"
+            placeholder="e.g. Garage shelf B"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            style={{ marginTop: 4 }}
+          />
+        </label>
+        <label>
+          Notes
+          <textarea
+            className="field"
+            rows={3}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            style={{ marginTop: 4, resize: 'vertical' }}
+          />
+        </label>
+        <label>
+          Photos
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            multiple
+            onChange={(e) => {
+              const files = Array.from(e.target.files || [])
+              setSelectedFiles(files)
+              setPrimaryIndex(files.length > 0 ? 0 : primaryIndex)
+            }}
+            style={{ display: 'block', marginTop: 4 }}
+          />
+        </label>
+
+        {selectedFiles.length > 0 && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--ink-soft)' }}>Choose the main display image</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {selectedFiles.map((file, index) => (
+                <button
+                  key={`${file.name}-${index}`}
+                  type="button"
+                  onClick={() => setPrimaryIndex(index)}
+                  style={{
+                    border: index === primaryIndex ? '2px solid var(--accent)' : '1px solid var(--line)',
+                    borderRadius: 8,
+                    padding: '6px 8px',
+                    background: index === primaryIndex ? 'rgba(94, 234, 212, 0.12)' : 'transparent',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {file.name.slice(0, 18)}{file.name.length > 18 ? '…' : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+        <button type="submit" className="btn btn-primary" disabled={saving}>
+          {saving ? 'Saving…' : 'Save item'}
+        </button>
+      </form>
+    </div>
+  )
+}
+```
+
+src/pages/ItemDetail.jsx
+```jsx
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { compressImage } from '../lib/imageCompression.js'
+import { supabase } from '../lib/supabase.js'
+
+function getStoragePathFromUrl(imageUrl) {
+  if (!imageUrl) return null
+
+  try {
+    const pathname = new URL(imageUrl).pathname
+    const match = pathname.match(/\/object\/public\/[^/]+\/(.+)$/)
+    return match ? decodeURIComponent(match[1]) : null
+  } catch {
+    return null
+  }
+}
+
+async function deleteStorageImageIfAny(imageUrl) {
+  if (!imageUrl) return { error: null }
+
+  const storagePath = getStoragePathFromUrl(imageUrl)
+  if (!storagePath) return { error: null }
+
+  const { error } = await supabase.storage.from('item-images').remove([storagePath])
+  if (error) {
+    console.warn('Could not delete old image from storage:', error.message)
+  }
+
+  return { error }
+}
+
+export default function ItemDetail() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+
+  const [item, setItem] = useState(null)
+  const [itemImages, setItemImages] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const [editing, setEditing] = useState(false)
+  const [label, setLabel] = useState('')
+  const [location, setLocation] = useState('')
+  const [notes, setNotes] = useState('')
+  const [newFiles, setNewFiles] = useState([])
+  const [selectedMainImage, setSelectedMainImage] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    load()
+  }, [id])
+
+  async function load() {
+    setLoading(true)
+    const { data, error: itemError } = await supabase.from('items').select('*').eq('id', id).single()
+
+    if (itemError) {
+      setError(itemError.message)
+      setLoading(false)
+      return
+    }
+
+    const normalizedImages = Array.isArray(data.images) ? data.images.filter(Boolean) : []
+    const imageList = normalizedImages.length > 0 ? normalizedImages : (data.image_url ? [data.image_url] : [])
+
+    setItem(data)
+    setItemImages(imageList)
+    setLabel(data.label || '')
+    setLocation(data.location || '')
+    setNotes(data.notes || '')
+    setSelectedMainImage(data.image_url || imageList[0] || '')
+    setError(null)
+    setLoading(false)
+  }
+
+  function handleRemoveExistingImage(imageUrl) {
+    const nextImages = itemImages.filter((url) => url !== imageUrl)
+    setItemImages(nextImages)
+    setSelectedMainImage((current) => current === imageUrl ? (nextImages[0] || '') : current)
+  }
+
+  async function handleSave(e) {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+
+    const uploadedUrls = []
+    for (let index = 0; index < newFiles.length; index += 1) {
+      const file = newFiles[index]
+      const compressedFile = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.7 })
+      const path = `${id}-${Date.now()}-${index}-${compressedFile.name}`
+
+      const { error: uploadError } = await supabase.storage.from('item-images').upload(path, compressedFile)
+      if (uploadError) {
+        setSaving(false)
+        setError(`Image upload failed: ${uploadError.message}`)
+        return
+      }
+
+      const { data: urlData } = supabase.storage.from('item-images').getPublicUrl(path)
+      uploadedUrls.push(urlData.publicUrl)
+    }
+
+    const finalImages = Array.from(new Set([...itemImages, ...uploadedUrls]))
+    const primaryImage = (selectedMainImage && finalImages.includes(selectedMainImage))
+      ? selectedMainImage
+      : finalImages[0] || null
+
+    const { error: updateError } = await supabase
+      .from('items')
+      .update({
+        label,
+        location,
+        notes,
+        image_url: primaryImage,
+        images: finalImages,
+      })
+      .eq('id', id)
+
+    setSaving(false)
+    if (updateError) {
+      setError(updateError.message)
+      return
+    }
+
+    setNewFiles([])
+    setEditing(false)
+    load()
+  }
+
+  async function handlePrimarySelect(imageUrl) {
+    const { error: updateError } = await supabase.from('items').update({ image_url: imageUrl }).eq('id', id)
+    if (updateError) {
+      setError(updateError.message)
+      return
+    }
+
+    setSelectedMainImage(imageUrl)
+    setItem((prev) => ({ ...prev, image_url: imageUrl }))
+    load()
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Delete "${item.label}"? This can't be undone.`)) return
+
+    const urlsToDelete = [...new Set([...(Array.isArray(item?.images) ? item.images : []), item?.image_url].filter(Boolean))]
+    for (const imageUrl of urlsToDelete) {
+      const { error: storageError } = await deleteStorageImageIfAny(imageUrl)
+      if (storageError) {
+        setError(`Could not delete the image from storage: ${storageError.message}`)
+        return
+      }
+    }
+
+    await supabase.from('items').delete().eq('id', id)
+    navigate('/')
+  }
+
+  const allImages = itemImages.length > 0 ? itemImages : (item && item.image_url ? [item.image_url] : [])
+  const primaryDisplayImage = item?.image_url || allImages[0] || ''
+
+  if (loading) return <p>Loading…</p>
+  if (error && !item) return <p style={{ color: 'var(--danger)' }}>{error}</p>
+  if (!item) return <p>Item not found.</p>
+
+  if (editing) {
+    return (
+      <div>
+        <span className="tape">{item.id}</span>
+        <h1 style={{ fontSize: '1.4rem', margin: '8px 0' }}>Edit item</h1>
+
+        {itemImages.length > 0 && (
+          <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--ink-soft)' }}>Choose the main image and remove any extras</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 8 }}>
+              {itemImages.map((imageUrl) => (
+                <div key={imageUrl} style={{ display: 'grid', gap: 6 }}>
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8, border: selectedMainImage === imageUrl ? '2px solid var(--accent)' : '1px solid var(--line)' }}
+                  />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button type="button" className="btn" onClick={() => setSelectedMainImage(imageUrl)}>
+                      {selectedMainImage === imageUrl ? 'Main image' : 'Set as main'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveExistingImage(imageUrl)}
+                      style={{ border: '1.5px solid var(--danger)', background: 'transparent', color: 'var(--danger)', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSave} style={{ display: 'grid', gap: 12, maxWidth: 400 }}>
+          <label>
+            Label
+            <input className="field" value={label} onChange={(e) => setLabel(e.target.value)} required style={{ marginTop: 4 }} />
+          </label>
+          <label>
+            Location
+            <input className="field" value={location} onChange={(e) => setLocation(e.target.value)} style={{ marginTop: 4 }} />
+          </label>
+          <label>
+            Notes
+            <textarea className="field" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} style={{ marginTop: 4, resize: 'vertical' }} />
+          </label>
+          <label>
+            Add more photos
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              multiple
+              onChange={(e) => setNewFiles(Array.from(e.target.files || []))}
+              style={{ display: 'block', marginTop: 4 }}
+            />
+          </label>
+          {newFiles.length > 0 && (
+            <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--ink-soft)' }}>New uploads</div>
+              {newFiles.map((file, index) => (
+                <div key={`${file.name}-${index}`} style={{ fontSize: '0.8rem' }}>{file.name}</div>
+              ))}
+            </div>
+          )}
+          {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            <button type="button" className="btn" onClick={() => setEditing(false)}>Cancel</button>
+          </div>
+        </form>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <span className="tape">{item.id}</span>
+      <h1 style={{ fontSize: '1.5rem', margin: '8px 0 2px' }}>{item.label}</h1>
+      <p style={{ color: 'var(--ink-soft)', marginTop: 0 }}>{item.location}</p>
+
+      {allImages.length > 0 && (
+        <div style={{ display: 'grid', gap: 12, margin: '12px 0' }}>
+          <img
+            src={primaryDisplayImage}
+            alt={item.label}
+            style={{ width: '100%', maxWidth: 320, borderRadius: 'var(--radius)', display: 'block' }}
+          />
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 8 }}>
+            {allImages.map((imageUrl) => (
+              <div key={imageUrl} style={{ display: 'grid', gap: 6 }}>
+                <img
+                  src={imageUrl}
+                  alt=""
+                  style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 8, border: selectedMainImage === imageUrl ? '2px solid var(--accent)' : '1px solid var(--line)' }}
+                />
+                <button type="button" className="btn" onClick={() => handlePrimarySelect(imageUrl)}>
+                  {selectedMainImage === imageUrl ? 'Display image' : 'Use as display'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {item.notes && (
+        <p style={{ whiteSpace: 'pre-wrap', margin: '12px 0' }}>{item.notes}</p>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+        <button className="btn btn-primary" onClick={() => setEditing(true)}>Edit</button>
+        <button
+          onClick={handleDelete}
+          style={{ border: '1.5px solid var(--danger)', background: 'transparent', color: 'var(--danger)', padding: '12px 18px', borderRadius: 'var(--radius)', fontWeight: 600, cursor: 'pointer' }}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  )
+}
+```
+
+supabase-schema.sql
+```sql
+-- Run this in Supabase: Dashboard → SQL Editor → New query → paste → Run
+
+create table if not exists items (
+  id text primary key,
+  label text not null,
+  location text,
+  image_url text,
+  images text[] not null default '{}',
+  notes text,
+  created_at timestamptz default now()
+);
+
+alter table items enable row level security;
+
+create policy "public read items" on items for select using (true);
+create policy "public insert items" on items for insert with check (true);
+create policy "public update items" on items for update using (true);
+create policy "public delete items" on items for delete using (true);
+
+insert into storage.buckets (id, name, public)
+values ('item-images', 'item-images', true)
+on conflict (id) do nothing;
+
+create policy "public read item images storage" on storage.objects
+  for select using (bucket_id = 'item-images');
+create policy "public upload item images storage" on storage.objects
+  for insert with check (bucket_id = 'item-images');
+create policy "public delete item images storage" on storage.objects
+  for delete using (bucket_id = 'item-images');
+create policy "public delete item images" on storage.objects
+  for delete using (bucket_id = 'item-images');
+```
+
+.env.example
+```env
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-public-key
+# Newer Supabase UI names this key "publishable key"; either name works as long as the app reads it.
+# VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+```
+
+README.md
+```md
+# Box Organiser
+
+Scan a QR sticker on a box → see (and edit) what's inside. React + Vite PWA, Supabase backend.
+
+## What's already built
+- `/` — list of all items
+- `/scan` — opens your camera, reads a QR code
+  - known ID → jumps straight to that item
+  - unknown ID → takes you to a form to register it (label, location, photo, notes)
+- `/item/:id` — view, edit, or delete an item; supports a photo upload
+- Installable as a PWA (Add to Home Screen) via `vite-plugin-pwa`
+
+**Data model:** one flat `items` table — `id` (the value encoded in the QR sticker, e.g. `12300`), `label`, `location`, `image_url`, `notes`, `created_at`.
+
+## 1. Install dependencies
+```bash
+cd qr-organiser
+npm install
+```
+
+## 2. Create your Supabase project
+1. Go to supabase.com → New project (free tier is fine).
+2. Once it's created, open **SQL Editor** → paste the contents of `supabase-schema.sql` → Run. This creates the `items` table and the `item-images` storage bucket for photos.
+3. Go to **Project Settings → API** and copy:
+   - `Project URL`
+   - `anon public` key
+
+## 3. Add your keys
+```bash
+cp .env.example .env
+```
+Paste your URL and anon key into `.env`.
+
+## 4. Run it locally
+```bash
+npm run dev
+```
+Open the printed `localhost` URL. Camera access needs HTTPS or `localhost` — both work fine for dev.
+
+## 5. Print your QR stickers
+Any QR generator works. Encode a short unique ID per item — e.g. `12300`.
+
+## 6. Deploy
+Push this folder to GitHub, then deploy to Vercel. Add the same env vars in Vercel.
+
+## Notes / next steps
+- **Photos**: uploads go to the `item-images` Supabase Storage bucket, and the public URL is saved to `items.image_url`.
+- **Security**: no login yet; acceptable for personal use.
+```
+
+ENV FILE
+--------
+Create a file named .env in the project root with:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-public-key
+```
+
+or, if using Supabase publishable value:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+```
+
+RULES FOR AGENT
+---------------
+- Use the repo files in the workspace; do not assume GitHub or remote repo access.
+- Use the real project state as the truth.
+- Do not create a separate item_images table.
+- Use items.image_url and items.images only.
+- Validate with:
+  cd /workspaces/qr-organiser && npm run build
+- After changes, return a short structured summary with changes, files, and build result.
+
+FULL WORKING APP SUMMARY
+------------------------
+This is a working QR organiser app with a single-table item model, photo uploads, QR scanning, and editing for main/display image selection.
+
+The agent should work directly in /workspaces/qr-organiser and use the files there rather than needing a remote repository or GitHub access.
